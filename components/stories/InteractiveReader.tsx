@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Play, Pause, Music,
-  MessageCircle, Sparkles, BookOpen, Volume2, VolumeX, X,
+  MessageCircle, Sparkles, Volume2, VolumeX, X,
+  ArrowLeft, Library,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import type { Pack, PackContent } from '@/lib/types/pack';
 
 interface StoryPage {
@@ -16,6 +17,7 @@ interface StoryPage {
   bible_ref?: string;
   image_url: string;
   text: string;
+  narration_url?: string;
 }
 
 interface InteractiveReaderProps {
@@ -30,12 +32,11 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
   const [showQuestions, setShowQuestions] = useState(false);
   const [direction, setDirection] = useState(0);
 
-  // Audio state
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+  // Per-page narration audio state
+  const narrationRef = useRef<HTMLAudioElement>(null);
+  const [narrationPlaying, setNarrationPlaying] = useState(false);
+  const [narrationProgress, setNarrationProgress] = useState(0);
+  const [narrationDuration, setNarrationDuration] = useState(0);
 
   // Song state
   const songRef = useRef<HTMLAudioElement>(null);
@@ -46,12 +47,15 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
   const page = pages[currentPage];
   const totalPages = pages.length;
   const isCover = currentPage === 0;
-  const isLastPage = currentPage === totalPages - 1;
 
   const goToPage = useCallback((n: number) => {
     if (n < 0 || n >= totalPages) return;
     setDirection(n > currentPage ? 1 : -1);
     setCurrentPage(n);
+    // Stop narration when changing pages
+    setNarrationPlaying(false);
+    setNarrationProgress(0);
+    setNarrationDuration(0);
   }, [currentPage, totalPages]);
 
   const nextPage = useCallback(() => goToPage(currentPage + 1), [currentPage, goToPage]);
@@ -74,6 +78,42 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
     const diff = touchStartX.current - e.changedTouches[0].clientX;
     if (Math.abs(diff) > 50) { diff > 0 ? nextPage() : prevPage(); }
   };
+
+  // Per-page narration handlers
+  const toggleNarration = () => {
+    if (!narrationRef.current) return;
+    if (narrationPlaying) {
+      narrationRef.current.pause();
+    } else {
+      narrationRef.current.play();
+    }
+    setNarrationPlaying(!narrationPlaying);
+  };
+
+  // Stop and reset narration audio when page changes
+  useEffect(() => {
+    const audio = narrationRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, [currentPage]);
+
+  useEffect(() => {
+    const audio = narrationRef.current;
+    if (!audio) return;
+    const onTime = () => { setNarrationProgress(audio.currentTime); setNarrationDuration(audio.duration || 0); };
+    const onEnd = () => { setNarrationPlaying(false); setNarrationProgress(0); };
+    const onLoaded = () => { setNarrationDuration(audio.duration || 0); };
+    audio.addEventListener('timeupdate', onTime);
+    audio.addEventListener('ended', onEnd);
+    audio.addEventListener('loadedmetadata', onLoaded);
+    return () => {
+      audio.removeEventListener('timeupdate', onTime);
+      audio.removeEventListener('ended', onEnd);
+      audio.removeEventListener('loadedmetadata', onLoaded);
+    };
+  }, []);
 
   // Song audio handlers
   const toggleSongPlay = () => {
@@ -114,6 +154,36 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
       {content.song_url && (
         <audio ref={songRef} src={content.song_url} preload="metadata" />
       )}
+      {page.narration_url && (
+        <audio ref={narrationRef} src={page.narration_url} preload="metadata" key={`narration-${currentPage}`} />
+      )}
+
+      {/* Top navigation bar */}
+      <div className="bg-bark-dark/80 backdrop-blur-sm border-b border-cream/10 z-30">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link
+            href="/packs"
+            className="flex items-center gap-2 text-cream/60 hover:text-cream transition-colors text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back to Books</span>
+          </Link>
+
+          <h1 className="font-display text-sm sm:text-base font-semibold text-cream/80 truncate max-w-[200px] sm:max-w-none">
+            {pack.title}
+          </h1>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/packs"
+              className="flex items-center gap-1.5 text-cream/50 hover:text-cream transition-colors text-xs"
+            >
+              <Library className="w-4 h-4" />
+              <span className="hidden sm:inline">Library</span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* Main reader area */}
       <div
@@ -181,7 +251,7 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
               ) : (
                 /* STORY PAGES */
                 <div>
-                  {/* Illustration */}
+                  {/* Illustration with voiceover button */}
                   <div className="relative aspect-square">
                     <Image
                       src={page.image_url}
@@ -190,6 +260,37 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
                       className="object-cover"
                       priority
                     />
+
+                    {/* Voiceover button - bottom right of image */}
+                    {page.narration_url && (
+                      <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2">
+                        {/* Mini progress bar (visible when playing) */}
+                        {narrationPlaying && narrationDuration > 0 && (
+                          <div className="bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-2">
+                            <div className="w-16 h-1 bg-white/20 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gold rounded-full transition-all"
+                                style={{ width: `${(narrationProgress / narrationDuration) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-white/60 text-[10px] tabular-nums">
+                              {formatTime(narrationProgress)}
+                            </span>
+                          </div>
+                        )}
+                        <button
+                          onClick={toggleNarration}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all cursor-pointer ${
+                            narrationPlaying
+                              ? 'bg-gold text-bark hover:bg-gold/90'
+                              : 'bg-black/40 backdrop-blur-sm text-white/80 hover:bg-black/60 hover:text-white'
+                          }`}
+                          title={narrationPlaying ? 'Pause narration' : 'Listen to this page'}
+                        >
+                          {narrationPlaying ? <Pause className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Text panel */}
@@ -199,7 +300,7 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
                     </h2>
                     {page.bible_ref && (
                       <p className="text-gold text-xs sm:text-sm italic mb-3">
-                        📖 Read it in your Bible: {page.bible_ref}
+                        Read it in your Bible: {page.bible_ref}
                       </p>
                     )}
                     <div className="text-bark/70 text-sm sm:text-base leading-relaxed whitespace-pre-line">
@@ -248,7 +349,7 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
               </button>
             )}
 
-            {/* Discussion button - show on last page */}
+            {/* Discussion button */}
             {content.discussion_questions && content.discussion_questions.length > 0 && (
               <button
                 onClick={() => { setShowQuestions(!showQuestions); setShowSong(false); }}
