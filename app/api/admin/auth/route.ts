@@ -51,7 +51,15 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    // Store role in a separate readable cookie for client-side checks
+    // Store user info in readable cookies for client-side checks
+    response.cookies.set('admin-user', admin.username, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
     response.cookies.set('admin-role', admin.role, {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
@@ -70,5 +78,6 @@ export async function DELETE() {
   const response = NextResponse.json({ success: true });
   response.cookies.delete('admin-session');
   response.cookies.delete('admin-role');
+  response.cookies.delete('admin-user');
   return response;
 }

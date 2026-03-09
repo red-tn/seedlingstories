@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Shield, ShieldCheck, Pencil, Eye } from 'lucide-react';
+import { Plus, Trash2, Shield, ShieldCheck, Pencil, Eye, KeyRound, Check } from 'lucide-react';
 
 interface Admin {
   id: string;
@@ -30,12 +30,19 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [currentRole, setCurrentRole] = useState('');
+  const [currentUser, setCurrentUser] = useState('');
+  const [showPwForm, setShowPwForm] = useState(false);
+  const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
 
   useEffect(() => {
     fetchAdmins();
-    // Read current user's role from cookie
     const roleCookie = document.cookie.split('; ').find(c => c.startsWith('admin-role='));
     if (roleCookie) setCurrentRole(roleCookie.split('=')[1]);
+    const userCookie = document.cookie.split('; ').find(c => c.startsWith('admin-user='));
+    if (userCookie) setCurrentUser(userCookie.split('=')[1]);
   }, []);
 
   async function fetchAdmins() {
@@ -85,6 +92,39 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess(false);
+
+    if (pwForm.new_password !== pwForm.confirm_password) {
+      setPwError('New passwords do not match');
+      return;
+    }
+
+    setPwSaving(true);
+
+    const res = await fetch('/api/admin/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentUser,
+        current_password: pwForm.current_password,
+        new_password: pwForm.new_password,
+      }),
+    });
+
+    if (res.ok) {
+      setPwSuccess(true);
+      setPwForm({ current_password: '', new_password: '', confirm_password: '' });
+      setTimeout(() => { setPwSuccess(false); setShowPwForm(false); }, 2000);
+    } else {
+      const data = await res.json();
+      setPwError(data.error || 'Failed to change password');
+    }
+    setPwSaving(false);
+  }
+
   const canManageUsers = currentRole === 'super_admin';
 
   return (
@@ -116,6 +156,92 @@ export default function AdminUsersPage() {
             <p className="text-xs text-bark/50">{role.description}</p>
           </div>
         ))}
+      </div>
+
+      {/* Change password */}
+      <div className="bg-white rounded-xl border border-bark/10 p-5 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gold/10 flex items-center justify-center">
+              <KeyRound className="w-4 h-4 text-gold" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-bark">Logged in as <span className="font-semibold">@{currentUser}</span></p>
+              <p className="text-xs text-bark/40">Change your password</p>
+            </div>
+          </div>
+          {!showPwForm && (
+            <button
+              onClick={() => setShowPwForm(true)}
+              className="px-3 py-1.5 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/5 transition-colors cursor-pointer"
+            >
+              Change Password
+            </button>
+          )}
+        </div>
+
+        {showPwForm && (
+          <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+            {pwError && (
+              <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg">{pwError}</div>
+            )}
+            {pwSuccess && (
+              <div className="bg-green-50 text-green-600 text-sm px-4 py-2 rounded-lg flex items-center gap-2">
+                <Check className="w-4 h-4" /> Password changed successfully
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-bark/60 mb-1">Current Password</label>
+                <input
+                  type="password"
+                  required
+                  value={pwForm.current_password}
+                  onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
+                  className="w-full px-3 py-2 border border-bark/20 rounded-lg text-sm focus:ring-2 focus:ring-gold/30 focus:border-gold outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-bark/60 mb-1">New Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={pwForm.new_password}
+                  onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
+                  className="w-full px-3 py-2 border border-bark/20 rounded-lg text-sm focus:ring-2 focus:ring-gold/30 focus:border-gold outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-bark/60 mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={pwForm.confirm_password}
+                  onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })}
+                  className="w-full px-3 py-2 border border-bark/20 rounded-lg text-sm focus:ring-2 focus:ring-gold/30 focus:border-gold outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={pwSaving}
+                className="px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold/90 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {pwSaving ? 'Saving...' : 'Update Password'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPwForm(false); setPwError(''); setPwForm({ current_password: '', new_password: '', confirm_password: '' }); }}
+                className="px-4 py-2 bg-bark/10 text-bark rounded-lg text-sm font-medium hover:bg-bark/20 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* New user form */}
