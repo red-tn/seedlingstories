@@ -11,9 +11,17 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
+  // Admin auth check
+  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+    const session = request.cookies.get('admin-session');
+    if (!session || session.value !== process.env.ADMIN_SESSION_TOKEN) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/listen/:path*', '/read/:path*'],
+  matcher: ['/listen/:path*', '/read/:path*', '/admin/:path*'],
 };
