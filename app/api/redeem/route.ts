@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const { data: invite, error: inviteError } = await supabase
       .from('invite_codes')
       .select('*, packs(*)')
-      .eq('code', code.trim().toUpperCase())
+      .eq('code', code.trim())
       .eq('is_active', true)
       .single();
 
