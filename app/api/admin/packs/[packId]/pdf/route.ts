@@ -232,7 +232,7 @@ export async function POST(
 
     const pdfBytes = await doc.save();
 
-    return new Response(pdfBytes, {
+    return new Response(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${pack.slug}-storybook.pdf"`,
