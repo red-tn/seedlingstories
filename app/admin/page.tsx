@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Package, Loader2 } from 'lucide-react';
+import { Plus, Package, Loader2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import type { Pack } from '@/lib/types/pack';
 
 const tierColors: Record<string, string> = {
@@ -14,9 +14,23 @@ const tierColors: Record<string, string> = {
   roots: 'bg-roots/10 text-roots',
 };
 
+type SortKey = 'title' | 'age_tier' | 'status' | 'price' | 'updated_at';
+type SortDir = 'asc' | 'desc';
+
+const tierOrder: Record<string, number> = { seeds: 0, sprouts: 1, branches: 2, roots: 3 };
+
+function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (sortKey !== column) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+  return sortDir === 'asc'
+    ? <ArrowUp className="w-3 h-3 ml-1" />
+    : <ArrowDown className="w-3 h-3 ml-1" />;
+}
+
 export default function AdminDashboard() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>('updated_at');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   useEffect(() => {
     fetch('/api/admin/packs')
@@ -24,6 +38,48 @@ export default function AdminDashboard() {
       .then((data) => { setPacks(data.packs || []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  const sorted = useMemo(() => {
+    return [...packs].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'title':
+          cmp = a.title.localeCompare(b.title);
+          break;
+        case 'age_tier':
+          cmp = (tierOrder[a.age_tier] ?? 99) - (tierOrder[b.age_tier] ?? 99);
+          break;
+        case 'status':
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case 'price':
+          cmp = (a.is_free ? 0 : 1) - (b.is_free ? 0 : 1)
+            || (a.price_display || '').localeCompare(b.price_display || '');
+          break;
+        case 'updated_at':
+          cmp = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [packs, sortKey, sortDir]);
+
+  const columns: { key: SortKey; label: string }[] = [
+    { key: 'title', label: 'Title' },
+    { key: 'age_tier', label: 'Age Tier' },
+    { key: 'status', label: 'Status' },
+    { key: 'price', label: 'Price' },
+    { key: 'updated_at', label: 'Updated' },
+  ];
 
   return (
     <div className="p-8">
@@ -54,15 +110,22 @@ export default function AdminDashboard() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gold/10 text-left">
-                <th className="px-6 py-3 text-xs font-semibold text-bark/50 uppercase tracking-wider">Title</th>
-                <th className="px-6 py-3 text-xs font-semibold text-bark/50 uppercase tracking-wider">Age Tier</th>
-                <th className="px-6 py-3 text-xs font-semibold text-bark/50 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold text-bark/50 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-3 text-xs font-semibold text-bark/50 uppercase tracking-wider">Updated</th>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className="px-6 py-3 text-xs font-semibold text-bark/50 uppercase tracking-wider cursor-pointer select-none hover:text-bark/80 transition-colors"
+                  >
+                    <span className="inline-flex items-center">
+                      {col.label}
+                      <SortIcon column={col.key} sortKey={sortKey} sortDir={sortDir} />
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {packs.map((pack) => (
+              {sorted.map((pack) => (
                 <tr key={pack.id} className="border-b border-gold/5 hover:bg-cream/30 transition-colors">
                   <td className="px-6 py-4">
                     <Link
