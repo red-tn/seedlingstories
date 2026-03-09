@@ -91,7 +91,7 @@ export default function PreviewStep() {
     { label: `Song: ${content.song_title || 'none'}`, ok: !!content.song_url, icon: Music },
     { label: `${questions.length} discussion questions`, ok: questions.length > 0, icon: MessageCircle },
     { label: `Memory verse`, ok: !!content.memory_verse, icon: Sparkles },
-    { label: `Memory verse card`, ok: !!(content as Record<string, unknown>).memory_verse_card_url, icon: BookOpen },
+    { label: `Memory verse card`, ok: !!(content as unknown as Record<string, unknown>).memory_verse_card_url, icon: BookOpen },
   ];
 
   return (
