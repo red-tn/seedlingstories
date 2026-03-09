@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /listen/
+Disallow: /read/
+Disallow: /api/
+Sitemap: https://seedlingstories.co/sitemap.xml
