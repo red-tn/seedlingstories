@@ -4,26 +4,12 @@ export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
 
-    const envUser = process.env.ADMIN_USERNAME;
-    const envPass = process.env.ADMIN_PASSWORD;
-
     if (
       !username || !password ||
-      !envUser || !envPass ||
-      username !== envUser ||
-      password !== envPass
+      username !== process.env.ADMIN_USERNAME ||
+      password !== process.env.ADMIN_PASSWORD
     ) {
-      return NextResponse.json({
-        error: 'Invalid credentials',
-        debug: {
-          hasEnvUser: !!envUser,
-          hasEnvPass: !!envPass,
-          envUserLength: envUser?.length,
-          envPassLength: envPass?.length,
-          inputUserLength: username?.length,
-          inputPassLength: password?.length,
-        }
-      }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
     const token = process.env.ADMIN_SESSION_TOKEN || 'default-admin-token';
