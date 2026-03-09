@@ -127,12 +127,12 @@ async function seed() {
 
     // Insert invite code
     const { error: codeErr } = await c.from('invite_codes').insert({
-      code: 'CREATION-DEMO-2024',
+      code: 'creation-demo',
       pack_id: creationPack.id,
       is_active: true,
     });
     if (codeErr) console.log('Invite code error:', codeErr.message);
-    else console.log('Inserted invite code: CREATION-DEMO-2024');
+    else console.log('Inserted invite code: creation-demo');
   }
 
   // Insert blog posts
@@ -159,7 +159,7 @@ async function seed() {
   if (blogErr) console.log('Blog insert error:', blogErr.message);
   else console.log('Inserted 2 blog posts');
 
-  console.log('\nDone! Test the invite code at: /listen/CREATION-DEMO-2024');
+  console.log('\nDone! Test the invite code at: /listen/creation-demo');
 }
 
 seed();
