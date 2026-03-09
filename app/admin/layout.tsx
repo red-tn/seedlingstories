@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Package, LogOut, Sprout } from 'lucide-react';
+import { LayoutDashboard, Package, Users, LogOut, Sprout } from 'lucide-react';
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/packs', label: 'Packs', icon: Package },
+  { href: '/admin/users', label: 'Users', icon: Users },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
