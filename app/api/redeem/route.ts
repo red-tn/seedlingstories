@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       pack: invite.packs,
       content,
     });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Redeem API error:', err);
+    return NextResponse.json({ error: 'Internal server error', detail: String(err) }, { status: 500 });
   }
 }
