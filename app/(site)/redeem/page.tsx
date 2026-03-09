@@ -19,11 +19,25 @@ export default function RedeemPage() {
     setIsLoading(true);
     setError('');
 
-    // In production, validate via /api/redeem first
-    // For now, redirect directly
-    setTimeout(() => {
-      router.push(`/listen/${code.trim().toUpperCase()}`);
-    }, 500);
+    try {
+      const res = await fetch('/api/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+
+      if (!res.ok) {
+        setError('Invalid code. Please check and try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Code is valid — redirect to listen page
+      router.push(`/listen/${code.trim()}`);
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,10 +59,10 @@ export default function RedeemPage() {
           <div>
             <Input
               type="text"
-              placeholder="e.g. CREATION-A7X9K"
+              placeholder="e.g. GOD-MADE-EVERYTHING"
               value={code}
               onChange={(e) => {
-                setCode(e.target.value.toUpperCase());
+                setCode(e.target.value);
                 setError('');
               }}
               className="text-center text-lg font-mono tracking-widest"
@@ -77,7 +91,7 @@ export default function RedeemPage() {
           <h3 className="font-display text-sm font-bold text-bark mb-3">Where do I find my code?</h3>
           <div className="space-y-2 text-sm text-bark/50">
             <p>Your code is printed on the last page of your story pack PDF, right next to the QR code.</p>
-            <p>It looks like this: <span className="font-mono text-bark bg-white px-2 py-0.5 rounded">CREATION-A7X9K</span></p>
+            <p>It looks like this: <span className="font-mono text-bark bg-white px-2 py-0.5 rounded">GOD-MADE-EVERYTHING</span></p>
           </div>
         </div>
 

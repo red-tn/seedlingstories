@@ -15,11 +15,11 @@ export function Footer() {
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center mb-4">
               <Image
-                src="/images/logo-dark-bg.png"
+                src="/images/logo.png"
                 alt="Seedling Stories"
-                width={180}
-                height={44}
-                className="h-11 w-auto"
+                width={48}
+                height={48}
+                className="h-11 w-auto rounded-full"
               />
             </Link>
             <p className="text-sm text-cream/50 leading-relaxed">

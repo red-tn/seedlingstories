@@ -2,55 +2,37 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, BookOpen } from 'lucide-react';
+import { notFound } from 'next/navigation';
+import { createServiceClient } from '@/lib/supabase/server';
 import { AgeBadge } from '@/components/shared/AgeBadge';
 import { BuyButtons } from '@/components/packs/BuyButtons';
 import { PackIncludes } from '@/components/packs/PackIncludes';
-import { Button } from '@/components/ui/button';
 
-// Demo pack data — will be replaced with Supabase query
-const DEMO_PACK = {
-  id: '4',
-  slug: 'the-creation-story',
-  title: 'The Creation Story',
-  subtitle: '7 days of wonder',
-  description: 'Journey through all seven days of creation in this beautifully illustrated pack designed for early readers ages 4-6. Each page brings a day of creation to life with vibrant watercolor illustrations, age-appropriate narrative text, and an exclusive QR code that unlocks audio narration, a worship song ("God Made Everything"), and an animated story video.\n\nPerfect for bedtime reading, Sunday School lessons, homeschool devotions, or just quality time with your little one. The included coloring pages and activity sheets extend the learning beyond the story itself.',
-  age_tier: 'sprouts' as const,
-  age_label: 'Ages 4-6',
-  scripture_refs: ['Genesis 1:1-2:3'],
-  price_display: '$14.99',
-  etsy_url: '#',
-  gumroad_url: '#',
-  cover_image_url: null,
-  preview_images: null,
-  preview_audio_url: null,
-  is_featured: true,
-  is_free: false,
-  sort_order: 1,
-  includes: [
-    { type: 'story-pages', label: '12 Illustrated Story Pages' },
-    { type: 'coloring-pages', label: '5 Coloring Pages' },
-    { type: 'audio-narration', label: 'Full Audio Narration (page-by-page)' },
-    { type: 'worship-song', label: '"God Made Everything" Worship Song' },
-    { type: 'animated-video', label: 'Animated Story Video (3 min)' },
-    { type: 'activity-sheets', label: 'Activity Sheets' },
-    { type: 'discussion-guide', label: 'Parent Discussion Guide' },
-    { type: 'memory-verse-card', label: 'Memory Verse Card (Genesis 1:1)' },
-  ],
-  status: 'published' as const,
-  series_name: 'Creation & Wonder',
-  created_at: '',
-  updated_at: '',
-};
+export const revalidate = 60;
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = createServiceClient();
+  const { data: pack } = await supabase.from('packs').select('title, description').eq('slug', slug).single();
+
+  if (!pack) return { title: 'Pack Not Found' };
   return {
-    title: DEMO_PACK.title,
-    description: DEMO_PACK.description?.slice(0, 160),
+    title: pack.title,
+    description: pack.description?.slice(0, 160) || undefined,
   };
 }
 
-export default function PackDetailPage() {
-  const pack = DEMO_PACK;
+export default async function PackDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const supabase = createServiceClient();
+
+  const { data: pack } = await supabase
+    .from('packs')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+
+  if (!pack) notFound();
 
   return (
     <div className="min-h-screen">
@@ -70,21 +52,21 @@ export default function PackDetailPage() {
           <div>
             <div className="storybook-border bg-white p-6 sticky top-24">
               <div className="aspect-[3/4] rounded-xl bg-gradient-to-br from-sprouts-light via-sky/20 to-seeds-light flex items-center justify-center relative overflow-hidden">
-                <Image
-                  src="/images/hero-child-meditation.png"
-                  alt={pack.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              {/* Preview gallery thumbnails */}
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {['/images/tier-seeds.png', '/images/tier-sprouts.png', '/images/tier-branches.png'].map((src, i) => (
-                  <div key={i} className="aspect-square rounded-lg bg-cream flex items-center justify-center border border-gold/10 p-3">
-                    <Image src={src} alt="" width={48} height={48} className="w-12 h-12" />
-                  </div>
-                ))}
+                {pack.cover_image_url ? (
+                  <Image
+                    src={pack.cover_image_url}
+                    alt={pack.title}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <Image
+                    src="/images/hero-child-meditation.png"
+                    alt={pack.title}
+                    fill
+                    className="object-cover"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -120,9 +102,9 @@ export default function PackDetailPage() {
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-6">
               <span className="font-display text-4xl font-bold text-bark">
-                {pack.price_display}
+                {pack.is_free ? 'Free' : pack.price_display}
               </span>
-              <span className="text-sm text-bark/40">one-time purchase</span>
+              {!pack.is_free && <span className="text-sm text-bark/40">one-time purchase</span>}
             </div>
 
             {/* Buy Buttons */}
@@ -137,17 +119,21 @@ export default function PackDetailPage() {
             <div className="vine-divider mb-6" />
 
             {/* Description */}
-            <div className="mb-8">
-              <h2 className="font-display text-lg font-bold text-bark mb-3">About This Pack</h2>
-              <div className="text-bark/60 text-sm leading-relaxed whitespace-pre-line">
-                {pack.description}
+            {pack.description && (
+              <div className="mb-8">
+                <h2 className="font-display text-lg font-bold text-bark mb-3">About This Pack</h2>
+                <div className="text-bark/60 text-sm leading-relaxed whitespace-pre-line">
+                  {pack.description}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* What's Included */}
-            <div className="mb-8">
-              <PackIncludes includes={pack.includes} />
-            </div>
+            {pack.includes && pack.includes.length > 0 && (
+              <div className="mb-8">
+                <PackIncludes includes={pack.includes} />
+              </div>
+            )}
 
             {/* How It Works Mini */}
             <div className="bg-cream rounded-2xl p-6 border border-gold/10">

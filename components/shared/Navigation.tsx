@@ -18,11 +18,11 @@ export function Navigation() {
           {/* Logo */}
           <Link href="/" className="flex items-center group">
             <Image
-              src="/images/logo-horizontal.png"
+              src="/images/logo.png"
               alt="Seedling Stories"
-              width={200}
+              width={48}
               height={48}
-              className="h-10 md:h-12 w-auto transition-transform duration-500 group-hover:scale-[1.02]"
+              className="h-10 md:h-12 w-auto rounded-full transition-transform duration-500 group-hover:scale-[1.02]"
               priority
             />
           </Link>
