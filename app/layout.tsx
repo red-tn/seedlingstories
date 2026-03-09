@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Nunito } from "next/font/google";
-import { Navigation } from "@/components/shared/Navigation";
-import { Footer } from "@/components/shared/Footer";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -48,9 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${nunito.variable}`}>
       <body className="min-h-screen flex flex-col font-body antialiased">
-        <Navigation />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        {children}
       </body>
     </html>
   );
