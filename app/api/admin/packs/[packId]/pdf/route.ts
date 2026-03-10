@@ -35,9 +35,16 @@ async function qrToBuffer(text: string): Promise<Buffer> {
   return Buffer.from(base64, 'base64');
 }
 
+// Strip characters that WinAnsi (standard PDF fonts) can't encode
+function sanitize(text: string): string {
+  // Keep only printable ASCII + common Latin-1 supplement (WinAnsi range)
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[^\x20-\x7E\xA0-\xFF\n]/g, '').trim();
+}
+
 function wrapText(text: string, font: Awaited<ReturnType<typeof PDFDocument.prototype.embedFont>>, fontSize: number, maxWidth: number): string[] {
   const lines: string[] = [];
-  for (const paragraph of text.split('\n')) {
+  for (const paragraph of sanitize(text).split('\n')) {
     const words = paragraph.split(' ');
     let currentLine = '';
     for (const word of words) {
@@ -89,10 +96,10 @@ export async function POST(
     const times = await doc.embedFont(StandardFonts.TimesRoman);
 
     const tierLabels: Record<string, string> = {
-      seeds: 'A Seeds-Level Story for Ages 2–4',
-      sprouts: 'A Sprouts-Level Story for Ages 4–6',
-      branches: 'A Branches-Level Story for Ages 6–9',
-      roots: 'A Roots-Level Story for Ages 9–12',
+      seeds: 'A Seeds-Level Story for Ages 2-4',
+      sprouts: 'A Sprouts-Level Story for Ages 4-6',
+      branches: 'A Branches-Level Story for Ages 6-9',
+      roots: 'A Roots-Level Story for Ages 9-12',
     };
 
     for (let i = 0; i < pages.length; i++) {
@@ -123,7 +130,7 @@ export async function POST(
         pdfPage.drawRectangle({ x: MARGIN + 80, y: 210, width: PAGE_SIZE - MARGIN * 2 - 160, height: 3, color: GOLD });
 
         // Title
-        const titleText = pack.title.toUpperCase().replace(/ /g, '\n') || 'UNTITLED';
+        const titleText = sanitize(pack.title).toUpperCase().replace(/ /g, '\n') || 'UNTITLED';
         const titleLines = titleText.split('\n');
         let ty = 185;
         for (const line of titleLines) {
@@ -134,12 +141,13 @@ export async function POST(
 
         // Subtitle
         if (pack.subtitle) {
-          const stw = timesI.widthOfTextAtSize(pack.subtitle, 18);
-          pdfPage.drawText(pack.subtitle, { x: (PAGE_SIZE - stw) / 2, y: 88, size: 18, font: timesI, color: GOLD });
+          const sub = sanitize(pack.subtitle);
+          const stw = timesI.widthOfTextAtSize(sub, 18);
+          pdfPage.drawText(sub, { x: (PAGE_SIZE - stw) / 2, y: 88, size: 18, font: timesI, color: GOLD });
         }
 
         // Scripture refs
-        const scriptureText = pack.scripture_refs?.join(', ') || '';
+        const scriptureText = sanitize(pack.scripture_refs?.join(', ') || '');
         if (scriptureText) {
           const scw = times.widthOfTextAtSize(scriptureText, 14);
           pdfPage.drawText(scriptureText, { x: (PAGE_SIZE - scw) / 2, y: 64, size: 14, font: times, color: rgb(0.4, 0.3, 0.25) });
@@ -163,11 +171,12 @@ export async function POST(
         pdfPage.drawRectangle({ x: MARGIN + 60, y: PAGE_SIZE - MARGIN - scaledH - 15, width: PAGE_SIZE - MARGIN * 2 - 120, height: 2, color: GOLD });
 
         const titleY = PAGE_SIZE - MARGIN - scaledH - 42;
-        const tw = timesB.widthOfTextAtSize(p.title, 24);
-        pdfPage.drawText(p.title, { x: (PAGE_SIZE - tw) / 2, y: titleY, size: 24, font: timesB, color: BARK });
+        const safeTitle = sanitize(p.title);
+        const tw = timesB.widthOfTextAtSize(safeTitle, 24);
+        pdfPage.drawText(safeTitle, { x: (PAGE_SIZE - tw) / 2, y: titleY, size: 24, font: timesB, color: BARK });
 
         if (p.bible_ref) {
-          const bibleText = `Read it in your Bible: ${p.bible_ref}`;
+          const bibleText = sanitize(`Read it in your Bible: ${p.bible_ref}`);
           const bw = timesI.widthOfTextAtSize(bibleText, 11);
           pdfPage.drawText(bibleText, { x: (PAGE_SIZE - bw) / 2, y: titleY - 22, size: 11, font: timesI, color: GOLD });
         }
@@ -231,14 +240,14 @@ export async function POST(
         }
 
         if (content.memory_verse_ref) {
-          const refText = `— ${content.memory_verse_ref}`;
+          const refText = sanitize(`-- ${content.memory_verse_ref}`);
           const rw = times.widthOfTextAtSize(refText, 13);
           backPage.drawText(refText, { x: (PAGE_SIZE - rw) / 2, y, size: 13, font: times, color: GOLD });
         }
       }
 
       backPage.drawRectangle({ x: MARGIN, y: MARGIN - 5, width: PAGE_SIZE - MARGIN * 2, height: 3, color: GOLD });
-      const brand = 'Seedling Stories — seedlingstories.co';
+      const brand = 'Seedling Stories - seedlingstories.co';
       const bw = times.widthOfTextAtSize(brand, 10);
       backPage.drawText(brand, { x: (PAGE_SIZE - bw) / 2, y: MARGIN - 22, size: 10, font: times, color: rgb(0.5, 0.4, 0.35) });
     }
@@ -275,7 +284,7 @@ export async function POST(
       ry -= 35;
 
       // Heading
-      const heading = redeemConfig?.heading || 'Your Seedling Stories Code';
+      const heading = sanitize(redeemConfig?.heading || 'Your Seedling Stories Code');
       const hw = timesB.widthOfTextAtSize(heading, 26);
       redeemPage.drawText(heading, { x: (PAGE_SIZE - hw) / 2, y: ry, size: 26, font: timesB, color: BARK });
       ry -= 30;
@@ -339,7 +348,7 @@ export async function POST(
 
         for (const item of unlockItems) {
           if (!item) continue;
-          const bulletText = `  •  ${item}`;
+          const bulletText = sanitize(`  -  ${item}`);
           const btw = times.widthOfTextAtSize(bulletText, 12);
           redeemPage.drawText(bulletText, { x: (PAGE_SIZE - btw) / 2, y: ry, size: 12, font: times, color: rgb(0.35, 0.27, 0.22) });
           ry -= 18;
