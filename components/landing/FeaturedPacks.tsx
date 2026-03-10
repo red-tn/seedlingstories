@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play } from 'lucide-react';
+import { Play, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AgeBadge } from '@/components/shared/AgeBadge';
 
@@ -105,21 +105,28 @@ export function FeaturedPacks() {
               ))}
             </div>
 
-            <div className="flex items-center gap-3 mb-6">
+            {/* Price with "Own Forever" messaging */}
+            <div className="flex items-center gap-4 mb-2">
               <span className="font-display text-3xl font-bold text-bark">$14.99</span>
-              <span className="text-sm text-bark/40">one-time purchase</span>
+              <div className="flex items-center gap-1.5 text-sprouts bg-sprouts/10 px-3 py-1 rounded-full">
+                <CreditCard className="w-3.5 h-3.5" />
+                <span className="text-xs font-semibold">One-time purchase</span>
+              </div>
             </div>
+            <p className="text-sm text-bark/40 mb-6">
+              Own it forever. No subscriptions. No hidden fees.
+            </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="etsy" size="lg" asChild>
-                <a href="#" target="_blank" rel="noopener noreferrer">
-                  Buy on Etsy
-                </a>
+              <Button size="lg" asChild>
+                <Link href="/packs/the-creation-story">
+                  View Pack Details
+                </Link>
               </Button>
-              <Button variant="gumroad" size="lg" asChild>
-                <a href="#" target="_blank" rel="noopener noreferrer">
-                  Buy on Gumroad
-                </a>
+              <Button variant="secondary" size="lg" asChild>
+                <Link href="/packs">
+                  Browse All Packs
+                </Link>
               </Button>
             </div>
 

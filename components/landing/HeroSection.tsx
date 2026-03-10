@@ -67,9 +67,14 @@ export function HeroSection() {
                 in Little Hearts
               </h1>
 
-              <p className="text-lg sm:text-xl text-bark/60 leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0">
+              <p className="text-lg sm:text-xl text-bark/60 leading-relaxed mb-4 max-w-lg mx-auto lg:mx-0">
                 Beautiful Bible story packs with printable pages, audio narration,
                 worship songs, and animated videos for ages 2&ndash;12.
+              </p>
+
+              {/* One-time purchase callout */}
+              <p className="text-sm text-sprouts font-semibold mb-8 max-w-lg mx-auto lg:mx-0">
+                One-time purchase. Own forever. No subscriptions.
               </p>
             </motion.div>
 

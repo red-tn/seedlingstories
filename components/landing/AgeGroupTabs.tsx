@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AGE_TIERS, AGE_TIER_ORDER, type AgeTier } from '@/lib/utils/age-tiers';
 import { PackCard } from '@/components/packs/PackCard';
 import type { Pack } from '@/lib/types/pack';
 
-// Demo packs for each tier
-const DEMO_PACKS: Record<AgeTier, Pack[]> = {
+// Fallback demo packs used when no real packs exist for a tier
+const FALLBACK_PACKS: Record<AgeTier, Pack[]> = {
   seeds: [
     { id: '1', slug: 'god-made-me', title: 'God Made Me!', subtitle: 'A creation story for little ones', description: 'A gentle introduction to God as our Creator, with tactile illustrations perfect for tiny hands.', age_tier: 'seeds', age_label: 'Ages 2-4', scripture_refs: ['Psalm 139:14'], price_display: '$14.99', etsy_url: '#', gumroad_url: '#', cover_image_url: null, preview_images: null, preview_audio_url: null, is_featured: true, is_free: false, sort_order: 1, includes: [{ type: 'story-pages', label: '8 Story Pages' }, { type: 'coloring-pages', label: '4 Coloring Pages' }, { type: 'audio-narration', label: 'Audio Narration' }], status: 'published', series_name: 'Creation & Wonder', created_at: '', updated_at: '' },
     { id: '2', slug: 'gods-beautiful-world', title: "God's Beautiful World", subtitle: 'Exploring creation day by day', description: 'Journey through each day of creation with vibrant watercolor illustrations and soothing narration.', age_tier: 'seeds', age_label: 'Ages 2-4', scripture_refs: ['Genesis 1:1-31'], price_display: '$14.99', etsy_url: '#', gumroad_url: '#', cover_image_url: null, preview_images: null, preview_audio_url: null, is_featured: false, is_free: false, sort_order: 2, includes: [{ type: 'story-pages', label: '10 Story Pages' }, { type: 'audio-narration', label: 'Audio Narration' }, { type: 'worship-song', label: 'Worship Song' }], status: 'published', series_name: 'Creation & Wonder', created_at: '', updated_at: '' },
@@ -29,8 +29,37 @@ const DEMO_PACKS: Record<AgeTier, Pack[]> = {
   ],
 };
 
-export function AgeGroupTabs() {
+interface AgeGroupTabsProps {
+  packs?: Pack[];
+}
+
+export function AgeGroupTabs({ packs = [] }: AgeGroupTabsProps) {
   const [activeTier, setActiveTier] = useState<AgeTier>('sprouts');
+
+  // Group fetched packs by age_tier, falling back to demo data for empty tiers
+  const packsByTier = useMemo(() => {
+    const grouped: Record<AgeTier, Pack[]> = {
+      seeds: [],
+      sprouts: [],
+      branches: [],
+      roots: [],
+    };
+
+    for (const pack of packs) {
+      if (grouped[pack.age_tier]) {
+        grouped[pack.age_tier].push(pack);
+      }
+    }
+
+    // Fall back to hardcoded data for any tier with no real packs
+    for (const tier of AGE_TIER_ORDER) {
+      if (grouped[tier].length === 0) {
+        grouped[tier] = FALLBACK_PACKS[tier];
+      }
+    }
+
+    return grouped;
+  }, [packs]);
 
   return (
     <section className="py-20 md:py-28 relative">
@@ -89,7 +118,7 @@ export function AgeGroupTabs() {
             transition={{ duration: 0.3 }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {DEMO_PACKS[activeTier].map((pack, i) => (
+            {packsByTier[activeTier].map((pack, i) => (
               <motion.div
                 key={pack.id}
                 initial={{ opacity: 0, y: 20 }}
