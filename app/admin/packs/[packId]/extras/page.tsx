@@ -230,39 +230,59 @@ export default function ExtrasStep() {
           </div>
 
           {/* Memory Verse Card */}
-          <div className="space-y-1">
-            <Label>Memory Verse Card Image</Label>
-            {memoryVerseCardUrl ? (
-              <div className="relative rounded-lg overflow-hidden bg-cream max-w-xs">
-                <img src={memoryVerseCardUrl} alt="Memory verse card" className="w-full" />
-                <label className="absolute bottom-2 right-2 bg-bark/70 text-cream text-xs px-2 py-1 rounded-lg cursor-pointer hover:bg-bark/90 transition-colors">
-                  Replace
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                    if (e.target.files?.[0]) {
-                      const url = await uploadFile('memory-verse-card', e.target.files[0]);
-                      if (url) setMemoryVerseCardUrl(url);
-                    }
-                  }} />
-                </label>
-              </div>
-            ) : (
-              <label className={`flex flex-col items-center justify-center h-32 max-w-xs rounded-lg border-2 border-dashed border-gold/20 bg-cream/50 cursor-pointer hover:border-gold/40 transition-colors ${uploading['memory-verse-card'] ? 'opacity-50' : ''}`}>
-                {uploading['memory-verse-card'] ? (
-                  <Loader2 className="w-6 h-6 text-gold animate-spin" />
+          <div className="space-y-2">
+            <Label>Memory Verse Card</Label>
+            <div className="flex gap-4">
+              {/* Card image upload */}
+              <div className="shrink-0">
+                {memoryVerseCardUrl ? (
+                  <div className="relative rounded-lg overflow-hidden bg-cream w-48">
+                    <img src={memoryVerseCardUrl} alt="Memory verse card" className="w-full" />
+                    <label className="absolute bottom-2 right-2 bg-bark/70 text-cream text-xs px-2 py-1 rounded-lg cursor-pointer hover:bg-bark/90 transition-colors">
+                      Replace
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        if (e.target.files?.[0]) {
+                          const url = await uploadFile('memory-verse-card', e.target.files[0]);
+                          if (url) setMemoryVerseCardUrl(url);
+                        }
+                      }} />
+                    </label>
+                  </div>
                 ) : (
-                  <>
-                    <BookOpen className="w-6 h-6 text-bark/30 mb-2" />
-                    <span className="text-xs text-bark/40">Upload verse card image</span>
-                  </>
+                  <label className={`flex flex-col items-center justify-center h-32 w-48 rounded-lg border-2 border-dashed border-gold/20 bg-cream/50 cursor-pointer hover:border-gold/40 transition-colors ${uploading['memory-verse-card'] ? 'opacity-50' : ''}`}>
+                    {uploading['memory-verse-card'] ? (
+                      <Loader2 className="w-6 h-6 text-gold animate-spin" />
+                    ) : (
+                      <>
+                        <BookOpen className="w-6 h-6 text-bark/30 mb-2" />
+                        <span className="text-xs text-bark/40">Upload card image</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      if (e.target.files?.[0]) {
+                        const url = await uploadFile('memory-verse-card', e.target.files[0]);
+                        if (url) setMemoryVerseCardUrl(url);
+                      }
+                    }} />
+                  </label>
                 )}
-                <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                  if (e.target.files?.[0]) {
-                    const url = await uploadFile('memory-verse-card', e.target.files[0]);
-                    if (url) setMemoryVerseCardUrl(url);
-                  }
-                }} />
-              </label>
-            )}
+              </div>
+
+              {/* Verse preview */}
+              <div className="flex-1 bg-cream/50 rounded-lg p-4 border border-gold/10">
+                <p className="text-xs font-medium text-gold uppercase tracking-wider mb-2">Card Preview</p>
+                {content.memory_verse ? (
+                  <>
+                    <p className="text-sm text-bark italic leading-relaxed">&ldquo;{content.memory_verse}&rdquo;</p>
+                    {content.memory_verse_ref && (
+                      <p className="text-xs font-semibold text-bark/60 mt-2">&mdash; {content.memory_verse_ref}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-bark/30 italic">Fill in the verse text and reference above to preview</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

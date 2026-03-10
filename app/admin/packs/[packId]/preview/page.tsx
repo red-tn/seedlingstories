@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import {
   Loader2, Download, Check, ChevronLeft, Rocket, Eye,
   Image as ImageIcon, Volume2, Music, MessageCircle, Sparkles, BookOpen,
-  ExternalLink,
+  ExternalLink, QrCode, Copy,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Pack, PackContent } from '@/lib/types/pack';
@@ -34,6 +34,11 @@ export default function PreviewStep() {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrSvg, setQrSvg] = useState<string | null>(null);
+  const [generatingQr, setGeneratingQr] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [existingCode, setExistingCode] = useState('');
 
   useEffect(() => {
     fetch(`/api/admin/packs/${packId}`)
@@ -44,7 +49,59 @@ export default function PreviewStep() {
         setPublished(data.pack?.status === 'published');
         setLoading(false);
       });
+
+    // Check for existing invite code
+    fetch(`/api/redeem`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: '__check_pack__', packId }),
+    }).catch(() => {});
   }, [packId]);
+
+  // Fetch existing invite codes for this pack
+  useEffect(() => {
+    if (!packId) return;
+    fetch(`/api/admin/packs/${packId}`)
+      .then((r) => r.json())
+      .then(async (data) => {
+        if (data.pack) {
+          // Check invite_codes table for this pack
+          const res = await fetch(`/api/admin/packs/${packId}/invite-code`);
+          if (res.ok) {
+            const codeData = await res.json();
+            if (codeData.code) {
+              setInviteCode(codeData.code);
+              setExistingCode(codeData.code);
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }, [packId]);
+
+  const readerUrl = inviteCode
+    ? `https://seedlingstories.co/read/${inviteCode}`
+    : '';
+
+  const generateQr = useCallback(async () => {
+    if (!readerUrl) return;
+    setGeneratingQr(true);
+    try {
+      const res = await fetch(`/api/admin/packs/${packId}/qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: readerUrl, size: 600 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQrDataUrl(data.dataUrl);
+        setQrSvg(data.svg);
+      }
+    } catch (err) {
+      console.error('QR generation failed:', err);
+    }
+    setGeneratingQr(false);
+  }, [packId, readerUrl]);
 
   const generatePdf = async () => {
     setGenerating(true);
@@ -70,10 +127,36 @@ export default function PreviewStep() {
         body: JSON.stringify({ inviteCode: inviteCode || undefined }),
       });
       setPublished(true);
+      setExistingCode(inviteCode);
     } catch (err) {
       console.error('Publish failed:', err);
     }
     setPublishing(false);
+  };
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(readerUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadQrPng = () => {
+    if (!qrDataUrl) return;
+    const a = document.createElement('a');
+    a.href = qrDataUrl;
+    a.download = `${pack?.slug || 'qr'}-qrcode.png`;
+    a.click();
+  };
+
+  const downloadQrSvg = () => {
+    if (!qrSvg) return;
+    const blob = new Blob([qrSvg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${pack?.slug || 'qr'}-qrcode.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading || !pack) {
@@ -202,22 +285,103 @@ export default function PreviewStep() {
         </div>
       )}
 
-      {/* Live reader preview link */}
-      {published && (
-        <div className="bg-white rounded-2xl border border-gold/10 p-6">
-          <h2 className="font-display text-lg font-bold text-bark mb-2">Live Reader</h2>
+      {/* Online Reader & QR Code */}
+      <div className="bg-white rounded-2xl border border-gold/10 p-6">
+        <h2 className="font-display text-lg font-bold text-bark mb-4 flex items-center gap-2">
+          <QrCode className="w-5 h-5 text-gold" />
+          Online Reader & QR Code
+        </h2>
+
+        <div className="space-y-4">
+          {/* Invite code input */}
+          <div className="space-y-1 max-w-md">
+            <Label>Invite Code</Label>
+            <Input
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase().replace(/\s+/g, '-'))}
+              placeholder="GOD-MADE-ME"
+            />
+          </div>
+
+          {/* Reader URL preview */}
           {inviteCode && (
-            <Link
-              href={`/read/${inviteCode}`}
-              target="_blank"
-              className="inline-flex items-center gap-2 text-gold hover:underline text-sm"
-            >
-              seedlingstories.co/read/{inviteCode}
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
+            <div className="bg-cream rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-bark/50 mb-1">Reader URL</p>
+                  <p className="text-sm font-mono text-bark">
+                    seedlingstories.co/read/{inviteCode}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={copyUrl}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-bark/60 bg-white border border-bark/10 rounded-lg hover:bg-bark/5 transition-colors cursor-pointer"
+                  >
+                    {copied ? <Check className="w-3 h-3 text-sprouts" /> : <Copy className="w-3 h-3" />}
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                  {(published || existingCode) && (
+                    <Link
+                      href={`/read/${inviteCode}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gold bg-white border border-gold/20 rounded-lg hover:bg-gold/5 transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Preview
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              {/* QR Code */}
+              <div className="pt-3 border-t border-bark/10">
+                {qrDataUrl ? (
+                  <div className="flex items-start gap-4">
+                    <div className="bg-white rounded-xl p-3 border border-bark/10 shrink-0">
+                      <img src={qrDataUrl} alt="QR Code" className="w-40 h-40" />
+                    </div>
+                    <div className="space-y-2 pt-1">
+                      <p className="text-sm font-medium text-bark">QR Code Ready</p>
+                      <p className="text-xs text-bark/40">Scan to open the online reader. Use in printed materials, stickers, or inside the book.</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={downloadQrPng}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-bark/60 bg-white border border-bark/10 rounded-lg hover:bg-bark/5 transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" />
+                          PNG
+                        </button>
+                        <button
+                          onClick={downloadQrSvg}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-bark/60 bg-white border border-bark/10 rounded-lg hover:bg-bark/5 transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" />
+                          SVG (print)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Button onClick={generateQr} disabled={generatingQr || !inviteCode} variant="outline">
+                    {generatingQr ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <QrCode className="w-4 h-4 mr-2" />
+                        Generate QR Code
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
         </div>
-      )}
+      </div>
 
       {/* PDF Generation */}
       <div className="bg-white rounded-2xl border border-gold/10 p-6">
@@ -262,25 +426,24 @@ export default function PreviewStep() {
         </h2>
 
         {published ? (
-          <div className="flex items-center gap-2 text-sprouts text-sm font-medium">
-            <Check className="w-5 h-5" />
-            This pack is published!
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sprouts text-sm font-medium">
+              <Check className="w-5 h-5" />
+              This pack is published!
+            </div>
+            {existingCode && (
+              <p className="text-xs text-bark/40">
+                Live at: seedlingstories.co/read/{existingCode}
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-1 max-w-xs">
-              <Label>Invite Code (for QR link)</Label>
-              <Input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="GOD-MADE-EVERYTHING"
-              />
-              <p className="text-xs text-bark/40">
-                Readers access at: /read/{inviteCode || '...'}
-              </p>
-            </div>
+            <p className="text-sm text-bark/60">
+              Publishing will set the pack status to &ldquo;published&rdquo; and create the invite code above for the online reader.
+            </p>
 
-            <Button onClick={handlePublish} disabled={publishing}>
+            <Button onClick={handlePublish} disabled={publishing || !inviteCode}>
               {publishing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -293,6 +456,10 @@ export default function PreviewStep() {
                 </>
               )}
             </Button>
+
+            {!inviteCode && (
+              <p className="text-xs text-bark/40">Set an invite code above before publishing.</p>
+            )}
           </div>
         )}
       </div>
