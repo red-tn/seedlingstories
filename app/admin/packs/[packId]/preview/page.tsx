@@ -41,6 +41,7 @@ export default function PreviewStep() {
   const [existingCode, setExistingCode] = useState('');
   const [savingCode, setSavingCode] = useState(false);
   const [codeSaved, setCodeSaved] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -105,15 +106,19 @@ export default function PreviewStep() {
 
   const generatePdf = async () => {
     setGenerating(true);
+    setPdfError('');
     try {
       const res = await fetch(`/api/admin/packs/${packId}/pdf`, { method: 'POST' });
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         setPdfUrl(url);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPdfError(data.error || `PDF generation failed (${res.status})`);
       }
     } catch (err) {
-      console.error('PDF generation failed:', err);
+      setPdfError(String(err));
     }
     setGenerating(false);
   };
@@ -430,6 +435,9 @@ export default function PreviewStep() {
             </a>
           )}
         </div>
+        {pdfError && (
+          <p className="text-red-600 text-sm mt-2">{pdfError}</p>
+        )}
       </div>
 
       {/* Publish */}

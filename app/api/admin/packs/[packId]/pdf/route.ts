@@ -19,8 +19,20 @@ interface PageData {
 }
 
 async function fetchImageBytes(url: string): Promise<Uint8Array> {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`);
   return new Uint8Array(await res.arrayBuffer());
+}
+
+async function qrToBuffer(text: string): Promise<Buffer> {
+  const dataUrl: string = await QRCode.toDataURL(text, {
+    width: 200,
+    margin: 2,
+    color: { dark: '#3E2723', light: '#FDF8F0' },
+    errorCorrectionLevel: 'H',
+  });
+  const base64 = dataUrl.split(',')[1];
+  return Buffer.from(base64, 'base64');
 }
 
 function wrapText(text: string, font: Awaited<ReturnType<typeof PDFDocument.prototype.embedFont>>, fontSize: number, maxWidth: number): string[] {
@@ -276,12 +288,7 @@ export async function POST(
       if (inviteCode) {
         const qrUrl = `https://seedlingstories.co/read/${inviteCode}`;
         try {
-          const qrPngBuffer = await QRCode.toBuffer(qrUrl, {
-            width: 200,
-            margin: 2,
-            color: { dark: '#3E2723', light: '#FDF8F0' },
-            errorCorrectionLevel: 'H',
-          });
+          const qrPngBuffer = await qrToBuffer(qrUrl);
           const qrImage = await doc.embedPng(qrPngBuffer);
           const qrSize = 140;
           redeemPage.drawImage(qrImage, { x: cx - qrSize / 2, y: ry - qrSize, width: qrSize, height: qrSize });
@@ -371,7 +378,9 @@ export async function POST(
       },
     });
   } catch (err) {
-    console.error('PDF generation error:', err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : '';
+    console.error('PDF generation error:', message, stack);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
