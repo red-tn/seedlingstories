@@ -39,44 +39,23 @@ export default function PreviewStep() {
   const [generatingQr, setGeneratingQr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [existingCode, setExistingCode] = useState('');
+  const [savingCode, setSavingCode] = useState(false);
+  const [codeSaved, setCodeSaved] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/admin/packs/${packId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setPack(data.pack);
-        setContent(data.content);
-        setPublished(data.pack?.status === 'published');
-        setLoading(false);
-      });
-
-    // Check for existing invite code
-    fetch(`/api/redeem`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: '__check_pack__', packId }),
-    }).catch(() => {});
-  }, [packId]);
-
-  // Fetch existing invite codes for this pack
-  useEffect(() => {
-    if (!packId) return;
-    fetch(`/api/admin/packs/${packId}`)
-      .then((r) => r.json())
-      .then(async (data) => {
-        if (data.pack) {
-          // Check invite_codes table for this pack
-          const res = await fetch(`/api/admin/packs/${packId}/invite-code`);
-          if (res.ok) {
-            const codeData = await res.json();
-            if (codeData.code) {
-              setInviteCode(codeData.code);
-              setExistingCode(codeData.code);
-            }
-          }
-        }
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch(`/api/admin/packs/${packId}`).then((r) => r.json()),
+      fetch(`/api/admin/packs/${packId}/invite-code`).then((r) => r.json()),
+    ]).then(([packData, codeData]) => {
+      setPack(packData.pack);
+      setContent(packData.content);
+      setPublished(packData.pack?.status === 'published');
+      if (codeData.code) {
+        setInviteCode(codeData.code);
+        setExistingCode(codeData.code);
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, [packId]);
 
   const readerUrl = inviteCode
@@ -102,6 +81,27 @@ export default function PreviewStep() {
     }
     setGeneratingQr(false);
   }, [packId, readerUrl]);
+
+  const saveInviteCode = async () => {
+    if (!inviteCode.trim()) return;
+    setSavingCode(true);
+    setCodeSaved(false);
+    try {
+      const res = await fetch(`/api/admin/packs/${packId}/invite-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: inviteCode.trim() }),
+      });
+      if (res.ok) {
+        setExistingCode(inviteCode.trim());
+        setCodeSaved(true);
+        setTimeout(() => setCodeSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error('Save invite code failed:', err);
+    }
+    setSavingCode(false);
+  };
 
   const generatePdf = async () => {
     setGenerating(true);
@@ -296,11 +296,25 @@ export default function PreviewStep() {
           {/* Invite code input */}
           <div className="space-y-1 max-w-md">
             <Label>Invite Code</Label>
-            <Input
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase().replace(/\s+/g, '-'))}
-              placeholder="GOD-MADE-ME"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={inviteCode}
+                onChange={(e) => { setInviteCode(e.target.value.toUpperCase().replace(/\s+/g, '-')); setCodeSaved(false); }}
+                placeholder="GOD-MADE-ME"
+                className="flex-1"
+              />
+              <Button
+                onClick={saveInviteCode}
+                disabled={savingCode || !inviteCode.trim() || inviteCode === existingCode}
+                variant={codeSaved ? 'default' : 'outline'}
+              >
+                {savingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : codeSaved ? <Check className="w-4 h-4" /> : null}
+                {savingCode ? '' : codeSaved ? 'Saved' : 'Save Code'}
+              </Button>
+            </div>
+            {existingCode && inviteCode === existingCode && (
+              <p className="text-xs text-sprouts flex items-center gap-1"><Check className="w-3 h-3" /> Code saved</p>
+            )}
           </div>
 
           {/* Reader URL preview */}
