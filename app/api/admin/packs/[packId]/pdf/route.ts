@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import QRCode from 'qrcode';
 
 const PAGE_SIZE = 612;
 const MARGIN = 40;
@@ -228,6 +229,137 @@ export async function POST(
       const brand = 'Seedling Stories — seedlingstories.co';
       const bw = times.widthOfTextAtSize(brand, 10);
       backPage.drawText(brand, { x: (PAGE_SIZE - bw) / 2, y: MARGIN - 22, size: 10, font: times, color: rgb(0.5, 0.4, 0.35) });
+    }
+
+    // REDEEM PAGE: QR code + invite code + unlock items
+    // Get invite code for this pack
+    const { data: inviteData } = await supabase
+      .from('invite_codes')
+      .select('code')
+      .eq('pack_id', packId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    const inviteCode = inviteData?.code || '';
+    const redeemConfig = (content as Record<string, unknown>).redeem_page as {
+      heading?: string;
+      unlock_items?: string[];
+      footer_message?: string;
+    } | null;
+
+    {
+      const redeemPage = doc.addPage([PAGE_SIZE, PAGE_SIZE]);
+      redeemPage.drawRectangle({ x: 0, y: 0, width: PAGE_SIZE, height: PAGE_SIZE, color: CREAM });
+
+      const cx = PAGE_SIZE / 2;
+      let ry = PAGE_SIZE - MARGIN - 20;
+
+      // Seedling icon
+      const seedling = 'Seedling Stories';
+      const slw = timesI.widthOfTextAtSize(seedling, 12);
+      redeemPage.drawText(seedling, { x: (PAGE_SIZE - slw) / 2, y: ry, size: 12, font: timesI, color: GOLD });
+      ry -= 35;
+
+      // Heading
+      const heading = redeemConfig?.heading || 'Your Seedling Stories Code';
+      const hw = timesB.widthOfTextAtSize(heading, 26);
+      redeemPage.drawText(heading, { x: (PAGE_SIZE - hw) / 2, y: ry, size: 26, font: timesB, color: BARK });
+      ry -= 30;
+
+      // Gold divider
+      redeemPage.drawRectangle({ x: MARGIN + 80, y: ry, width: PAGE_SIZE - MARGIN * 2 - 160, height: 2, color: GOLD });
+      ry -= 25;
+
+      // QR code
+      if (inviteCode) {
+        const qrUrl = `https://seedlingstories.co/read/${inviteCode}`;
+        try {
+          const qrPngBuffer = await QRCode.toBuffer(qrUrl, {
+            width: 200,
+            margin: 2,
+            color: { dark: '#3E2723', light: '#FDF8F0' },
+            errorCorrectionLevel: 'H',
+          });
+          const qrImage = await doc.embedPng(qrPngBuffer);
+          const qrSize = 140;
+          redeemPage.drawImage(qrImage, { x: cx - qrSize / 2, y: ry - qrSize, width: qrSize, height: qrSize });
+          ry -= qrSize + 15;
+        } catch {
+          // QR generation failed, skip
+          ry -= 10;
+        }
+      }
+
+      // Invite code
+      if (inviteCode) {
+        const codeText = inviteCode;
+        const codeFontSize = 20;
+        const cw = timesB.widthOfTextAtSize(codeText, codeFontSize);
+
+        // Code box background
+        const boxW = cw + 40;
+        const boxH = 36;
+        redeemPage.drawRectangle({
+          x: cx - boxW / 2, y: ry - boxH + 8,
+          width: boxW, height: boxH,
+          color: rgb(62/255, 39/255, 35/255), opacity: 0.08,
+          borderColor: GOLD, borderWidth: 1,
+        });
+        redeemPage.drawText(codeText, { x: cx - cw / 2, y: ry - 16, size: codeFontSize, font: timesB, color: BARK });
+        ry -= boxH + 20;
+      }
+
+      // "Scan this QR code..." text
+      const scanText = 'Scan this QR code or visit:';
+      const stw2 = times.widthOfTextAtSize(scanText, 13);
+      redeemPage.drawText(scanText, { x: (PAGE_SIZE - stw2) / 2, y: ry, size: 13, font: times, color: rgb(0.4, 0.3, 0.25) });
+      ry -= 18;
+
+      const urlText = 'seedlingstories.co/redeem';
+      const uw = timesB.widthOfTextAtSize(urlText, 14);
+      redeemPage.drawText(urlText, { x: (PAGE_SIZE - uw) / 2, y: ry, size: 14, font: timesB, color: GOLD });
+      ry -= 30;
+
+      // Unlock items
+      const unlockItems = redeemConfig?.unlock_items || [];
+      if (unlockItems.length > 0) {
+        const unlockTitle = 'Unlock your exclusive content:';
+        const utw = timesB.widthOfTextAtSize(unlockTitle, 13);
+        redeemPage.drawText(unlockTitle, { x: (PAGE_SIZE - utw) / 2, y: ry, size: 13, font: timesB, color: BARK });
+        ry -= 22;
+
+        for (const item of unlockItems) {
+          if (!item) continue;
+          const bulletText = `  •  ${item}`;
+          const btw = times.widthOfTextAtSize(bulletText, 12);
+          redeemPage.drawText(bulletText, { x: (PAGE_SIZE - btw) / 2, y: ry, size: 12, font: times, color: rgb(0.35, 0.27, 0.22) });
+          ry -= 18;
+        }
+        ry -= 10;
+      }
+
+      // Footer message
+      const footerMsg = redeemConfig?.footer_message || '';
+      if (footerMsg) {
+        const footerLines = wrapText(footerMsg, timesI, 11, PAGE_SIZE - MARGIN * 2 - 80);
+        for (const fl of footerLines) {
+          const flw = timesI.widthOfTextAtSize(fl, 11);
+          redeemPage.drawText(fl, { x: (PAGE_SIZE - flw) / 2, y: ry, size: 11, font: timesI, color: rgb(0.45, 0.38, 0.32) });
+          ry -= 16;
+        }
+      }
+
+      // Bottom branding
+      redeemPage.drawRectangle({ x: MARGIN + 80, y: MARGIN + 20, width: PAGE_SIZE - MARGIN * 2 - 160, height: 2, color: GOLD });
+      const bottomBrand = 'seedlingstories.co';
+      const bbw = timesB.widthOfTextAtSize(bottomBrand, 12);
+      redeemPage.drawText(bottomBrand, { x: (PAGE_SIZE - bbw) / 2, y: MARGIN + 2, size: 12, font: timesB, color: GOLD });
+
+      const tagline = 'Planting God\'s Word in Little Hearts';
+      const tlw = timesI.widthOfTextAtSize(tagline, 10);
+      redeemPage.drawText(tagline, { x: (PAGE_SIZE - tlw) / 2, y: MARGIN - 14, size: 10, font: timesI, color: rgb(0.5, 0.4, 0.35) });
     }
 
     const pdfBytes = await doc.save();

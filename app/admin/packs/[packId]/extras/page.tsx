@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, Check, ChevronRight, ChevronLeft, Plus, Trash2,
-  Upload, Music, MessageCircle, Sparkles, Image as ImageIcon, BookOpen,
+  Upload, Music, MessageCircle, Sparkles, Image as ImageIcon, BookOpen, QrCode,
 } from 'lucide-react';
 import type { PackContent } from '@/lib/types/pack';
 
@@ -20,6 +20,11 @@ export default function ExtrasStep() {
   const [content, setContent] = useState<Partial<PackContent>>({});
   const [coloringPages, setColoringPages] = useState<string[]>([]);
   const [memoryVerseCardUrl, setMemoryVerseCardUrl] = useState('');
+  const [redeemPage, setRedeemPage] = useState({
+    heading: 'Your Seedling Stories Code',
+    unlock_items: ['Audio narration — hear the story read aloud', 'Worship song', 'Animated story video'],
+    footer_message: 'This code is yours forever. Bookmark the page for bedtime, car rides, and anytime!',
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -34,6 +39,14 @@ export default function ExtrasStep() {
         // coloring_pages and memory_verse_card_url stored in pack_content as extra JSONB fields
         setColoringPages((c as Record<string, unknown>).coloring_pages as string[] || []);
         setMemoryVerseCardUrl((c as Record<string, unknown>).memory_verse_card_url as string || '');
+        const rp = (c as Record<string, unknown>).redeem_page as Record<string, unknown> | undefined;
+        if (rp) {
+          setRedeemPage({
+            heading: (rp.heading as string) || 'Your Seedling Stories Code',
+            unlock_items: (rp.unlock_items as string[]) || [],
+            footer_message: (rp.footer_message as string) || '',
+          });
+        }
         setLoading(false);
       });
   }, [packId]);
@@ -53,12 +66,13 @@ export default function ExtrasStep() {
         memory_verse_ref: content.memory_verse_ref || null,
         memory_verse_card_url: memoryVerseCardUrl || null,
         coloring_pages: coloringPages.length > 0 ? coloringPages : null,
+        redeem_page: redeemPage,
       }),
     });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [packId, content, coloringPages, memoryVerseCardUrl]);
+  }, [packId, content, coloringPages, memoryVerseCardUrl, redeemPage]);
 
   const uploadFile = async (type: string, file: File, pageNum?: string) => {
     setUploading((prev) => ({ ...prev, [type]: true }));
@@ -323,6 +337,97 @@ export default function ExtrasStep() {
               }
             }} />
           </label>
+        </div>
+      </div>
+
+      {/* Redeem Page (PDF last page) */}
+      <div className="bg-white rounded-2xl border border-gold/10 p-6">
+        <h2 className="font-display text-lg font-bold text-bark flex items-center gap-2 mb-4">
+          <QrCode className="w-5 h-5 text-gold" />
+          Redeem Page (PDF Back Cover)
+        </h2>
+        <p className="text-xs text-bark/40 mb-4">
+          This appears as the last page of the generated PDF, with QR code and invite code.
+        </p>
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label>Heading</Label>
+            <Input
+              value={redeemPage.heading}
+              onChange={(e) => setRedeemPage({ ...redeemPage, heading: e.target.value })}
+              placeholder="Your Seedling Stories Code"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Unlock Items</Label>
+            {redeemPage.unlock_items.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  value={item}
+                  onChange={(e) => {
+                    const updated = [...redeemPage.unlock_items];
+                    updated[i] = e.target.value;
+                    setRedeemPage({ ...redeemPage, unlock_items: updated });
+                  }}
+                  placeholder="Audio narration — hear the story read aloud"
+                  className="flex-1"
+                />
+                <button
+                  onClick={() => setRedeemPage({
+                    ...redeemPage,
+                    unlock_items: redeemPage.unlock_items.filter((_, j) => j !== i),
+                  })}
+                  className="text-bark/30 hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setRedeemPage({
+                ...redeemPage,
+                unlock_items: [...redeemPage.unlock_items, ''],
+              })}
+              className="flex items-center gap-1.5 text-sm text-gold hover:text-gold/80 transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Add Item
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Footer Message</Label>
+            <Textarea
+              value={redeemPage.footer_message}
+              onChange={(e) => setRedeemPage({ ...redeemPage, footer_message: e.target.value })}
+              placeholder="This code is yours forever. Bookmark the page for bedtime, car rides, and anytime!"
+              rows={2}
+            />
+          </div>
+
+          {/* Live preview */}
+          <div className="bg-cream rounded-xl p-5 border border-gold/10 text-center space-y-3">
+            <p className="text-[10px] font-medium text-bark/30 uppercase tracking-widest">Preview</p>
+            <p className="text-xs text-bark/40">🌱</p>
+            <p className="font-display text-sm font-bold text-bark">{redeemPage.heading || 'Your Seedling Stories Code'}</p>
+            <div className="w-16 h-16 bg-bark/10 rounded-lg mx-auto flex items-center justify-center">
+              <QrCode className="w-8 h-8 text-bark/20" />
+            </div>
+            <p className="text-[10px] text-bark/40 font-mono">CODE-GOES-HERE</p>
+            <p className="text-[10px] text-bark/40">Scan this QR code or visit: seedlingstories.co/redeem</p>
+            <div className="text-left max-w-[200px] mx-auto space-y-0.5">
+              <p className="text-[10px] text-bark/50 font-medium">Unlock your exclusive content:</p>
+              {redeemPage.unlock_items.filter(Boolean).map((item, i) => (
+                <p key={i} className="text-[10px] text-bark/40">• {item}</p>
+              ))}
+            </div>
+            {redeemPage.footer_message && (
+              <p className="text-[9px] text-bark/30 italic max-w-[220px] mx-auto">{redeemPage.footer_message}</p>
+            )}
+            <p className="text-[9px] text-bark/20">seedlingstories.co — Planting God&apos;s Word in Little Hearts 🌱</p>
+          </div>
         </div>
       </div>
 
