@@ -383,6 +383,41 @@ export async function POST(
       redeemPage.drawText(tagline, { x: (PAGE_SIZE - tlw) / 2, y: MARGIN - 14, size: 10, font: timesI, color: rgb(0.5, 0.4, 0.35) });
     }
 
+    // COLORING PAGES — full page images after redeem page
+    const coloringPages = ((content as Record<string, unknown>).coloring_pages as string[]) || [];
+    for (let ci = 0; ci < coloringPages.length; ci++) {
+      const cpPage = doc.addPage([PAGE_SIZE, PAGE_SIZE]);
+      cpPage.drawRectangle({ x: 0, y: 0, width: PAGE_SIZE, height: PAGE_SIZE, color: rgb(1, 1, 1) });
+
+      try {
+        const imgBytes = await fetchImageBytes(coloringPages[ci]);
+        let cpImg;
+        try { cpImg = await doc.embedJpg(imgBytes); }
+        catch { cpImg = await doc.embedPng(imgBytes); }
+
+        // Draw image centered with margins, maintaining aspect ratio
+        const maxW = PAGE_SIZE - MARGIN * 2;
+        const maxH = PAGE_SIZE - MARGIN * 2 - 40; // leave room for label
+        const { width: origW, height: origH } = cpImg.scale(1);
+        const scale = Math.min(maxW / origW, maxH / origH);
+        const drawW = origW * scale;
+        const drawH = origH * scale;
+        cpPage.drawImage(cpImg, {
+          x: (PAGE_SIZE - drawW) / 2,
+          y: (PAGE_SIZE - drawH) / 2 + 10,
+          width: drawW,
+          height: drawH,
+        });
+      } catch {
+        // Skip if image fails
+      }
+
+      // Label at bottom
+      const label = `Coloring Page ${ci + 1}`;
+      const lw = times.widthOfTextAtSize(label, 10);
+      cpPage.drawText(label, { x: (PAGE_SIZE - lw) / 2, y: 18, size: 10, font: times, color: rgb(0.5, 0.4, 0.35) });
+    }
+
     const pdfBytes = await doc.save();
 
     return new Response(Buffer.from(pdfBytes), {
