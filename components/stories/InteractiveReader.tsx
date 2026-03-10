@@ -241,10 +241,14 @@ export function InteractiveReader({ pack, content }: InteractiveReaderProps) {
                   <div className="absolute bottom-0 left-0 right-0 p-8 text-center">
                     <div className="h-0.5 w-32 bg-gold mx-auto mb-4" />
                     <h1 className="font-display text-3xl sm:text-4xl font-bold text-bark leading-tight mb-2">
-                      GOD MADE<br />EVERYTHING!
+                      {pack.title}
                     </h1>
-                    <p className="font-display text-lg text-gold italic">The Seven Days of Creation</p>
-                    <p className="text-bark/40 text-sm mt-2">Genesis 1:1 – 2:3</p>
+                    {pack.subtitle && (
+                      <p className="font-display text-lg text-gold italic">{pack.subtitle}</p>
+                    )}
+                    {page.bible_ref && (
+                      <p className="text-bark/40 text-sm mt-2">{page.bible_ref}</p>
+                    )}
                     <p className="text-bark/30 text-xs mt-4">Tap or swipe to begin →</p>
                   </div>
                 </div>
