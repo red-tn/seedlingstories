@@ -120,44 +120,49 @@ export async function POST(
       }
 
       if (i === 0) {
-        // COVER PAGE
+        // COVER PAGE — full bleed image with text overlay at bottom
         if (img) {
-          const imgSize = PAGE_SIZE - MARGIN * 2;
-          pdfPage.drawImage(img, { x: MARGIN, y: PAGE_SIZE - MARGIN - imgSize, width: imgSize, height: imgSize });
+          pdfPage.drawImage(img, { x: 0, y: 0, width: PAGE_SIZE, height: PAGE_SIZE });
         }
 
-        pdfPage.drawRectangle({ x: 0, y: 0, width: PAGE_SIZE, height: 220, color: CREAM, opacity: 0.85 });
-        pdfPage.drawRectangle({ x: MARGIN + 80, y: 210, width: PAGE_SIZE - MARGIN * 2 - 160, height: 3, color: GOLD });
+        // Gradient overlay at bottom for text readability
+        const overlayH = 260;
+        pdfPage.drawRectangle({ x: 0, y: 0, width: PAGE_SIZE, height: overlayH, color: CREAM, opacity: 0.92 });
 
-        // Title
-        const titleText = sanitize(pack.title).toUpperCase().replace(/ /g, '\n') || 'UNTITLED';
-        const titleLines = titleText.split('\n');
-        let ty = 185;
+        // Gold divider line
+        pdfPage.drawRectangle({ x: MARGIN + 80, y: overlayH - 10, width: PAGE_SIZE - MARGIN * 2 - 160, height: 3, color: GOLD });
+
+        // Title — keep on one or two lines, auto-size
+        const safePackTitle = sanitize(pack.title).toUpperCase() || 'UNTITLED';
+        const titleLines = wrapText(safePackTitle, timesBI, 36, PAGE_SIZE - MARGIN * 2 - 40);
+        let ty = overlayH - 50;
         for (const line of titleLines) {
-          const tw = timesBI.widthOfTextAtSize(line, 42);
-          pdfPage.drawText(line, { x: (PAGE_SIZE - tw) / 2, y: ty, size: 42, font: timesBI, color: BARK });
-          ty -= 50;
+          const tw = timesBI.widthOfTextAtSize(line, 36);
+          pdfPage.drawText(line, { x: (PAGE_SIZE - tw) / 2, y: ty, size: 36, font: timesBI, color: BARK });
+          ty -= 44;
         }
 
         // Subtitle
         if (pack.subtitle) {
+          ty -= 4;
           const sub = sanitize(pack.subtitle);
-          const stw = timesI.widthOfTextAtSize(sub, 18);
-          pdfPage.drawText(sub, { x: (PAGE_SIZE - stw) / 2, y: 88, size: 18, font: timesI, color: GOLD });
+          const stw = timesI.widthOfTextAtSize(sub, 16);
+          pdfPage.drawText(sub, { x: (PAGE_SIZE - stw) / 2, y: ty, size: 16, font: timesI, color: GOLD });
+          ty -= 28;
         }
 
         // Scripture refs
         const scriptureText = sanitize(pack.scripture_refs?.join(', ') || '');
         if (scriptureText) {
-          const scw = times.widthOfTextAtSize(scriptureText, 14);
-          pdfPage.drawText(scriptureText, { x: (PAGE_SIZE - scw) / 2, y: 64, size: 14, font: times, color: rgb(0.4, 0.3, 0.25) });
+          const scw = times.widthOfTextAtSize(scriptureText, 12);
+          pdfPage.drawText(scriptureText, { x: (PAGE_SIZE - scw) / 2, y: ty, size: 12, font: times, color: rgb(0.4, 0.3, 0.25) });
         }
 
-        // Footer
+        // Footer — age tier at very bottom
         const footer = tierLabels[pack.age_tier] || '';
         if (footer) {
-          const fw = times.widthOfTextAtSize(footer, 12);
-          pdfPage.drawText(footer, { x: (PAGE_SIZE - fw) / 2, y: 38, size: 12, font: times, color: rgb(0.5, 0.4, 0.35) });
+          const fw = times.widthOfTextAtSize(footer, 11);
+          pdfPage.drawText(footer, { x: (PAGE_SIZE - fw) / 2, y: 20, size: 11, font: times, color: rgb(0.5, 0.4, 0.35) });
         }
       } else {
         // STORY PAGE
