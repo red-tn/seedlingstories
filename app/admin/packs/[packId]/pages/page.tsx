@@ -29,6 +29,7 @@ export default function PagesStep() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [expandedPage, setExpandedPage] = useState<number | null>(0);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
 
@@ -45,14 +46,24 @@ export default function PagesStep() {
   const save = useCallback(async () => {
     setSaving(true);
     setSaved(false);
-    await fetch(`/api/admin/packs/${packId}/content`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page_narrations: pages }),
-    });
+    setSaveError('');
+    try {
+      const res = await fetch(`/api/admin/packs/${packId}/content`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_narrations: pages }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setSaveError(data.error || 'Save failed');
+      } else {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch {
+      setSaveError('Network error — save failed');
+    }
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   }, [packId, pages]);
 
   const updatePage = (index: number, field: keyof PageData, value: string) => {
@@ -280,6 +291,10 @@ export default function PagesStep() {
         <Plus className="w-4 h-4" />
         <span className="text-sm font-medium">Add Page</span>
       </button>
+
+      {saveError && (
+        <div className="mt-3 bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg">{saveError}</div>
+      )}
 
       {/* Bottom actions */}
       <div className="flex items-center justify-between mt-6">
